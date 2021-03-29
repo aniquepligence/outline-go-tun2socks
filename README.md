@@ -37,3 +37,5 @@ This is vm is configured for android build. All libraries, android ndk and sdk a
 <a name="" href="https://pligencecom-my.sharepoint.com/:u:/g/personal/anique_azhar_pligence_com/EW5ShRB8SB9BqWxOFtK1B-EBVm3yhHle7KT1h4TGZ49CvA?e=TgtcWo">File 1</a>
 <a name="235ffda" href="https://pligencecom-my.sharepoint.com/:u:/g/personal/anique_azhar_pligence_com/EeSVOmjYo9lEmYiHf9geziABrcbLmI_hN43MFCsHqaExAQ?e=FZ05nu">File 2</a>
 <a name="235ffda" href="https://pligencecom-my.sharepoint.com/:u:/g/personal/anique_azhar_pligence_com/EfbYg3e_zWZBgGffgN-0NyIBA-JlsqFHMf5ITnKkFOPKzQ?e=afbLd9">File 3</a>
+VM Login Username: Anique
+VM Login Password: 12345678
