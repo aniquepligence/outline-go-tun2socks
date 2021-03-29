@@ -34,6 +34,6 @@ go get -d ./...
 
 ## Ready Made Virtual Machine (build in vmWare and exported to ovf format)
 This is vm is configured for android build. All libraries, android ndk and sdk are configured. Just plug and Play
-<a name="File 1" href="https://pligencecom-my.sharepoint.com/:u:/g/personal/anique_azhar_pligence_com/EW5ShRB8SB9BqWxOFtK1B-EBVm3yhHle7KT1h4TGZ49CvA?e=TgtcWo">235ffda</a>
+<a name="" href="https://pligencecom-my.sharepoint.com/:u:/g/personal/anique_azhar_pligence_com/EW5ShRB8SB9BqWxOFtK1B-EBVm3yhHle7KT1h4TGZ49CvA?e=TgtcWo">File 1</a>
 <a name="235ffda" href="#235ffda">235ffda</a>
 <a name="235ffda" href="#235ffda">235ffda</a>
