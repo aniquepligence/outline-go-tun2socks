@@ -124,6 +124,11 @@ func filteredPort(addr net.Addr) int16 {
 // TODO: Request upstream to make `conn` a `core.TCPConn` so we can avoid a type assertion.
 func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	// DNS override
+	log.Warnf("target ip address is " + target.IP.String())
+	log.Warnf("h ip address is " + h.fakedns.IP.String())
+	log.Warnf("conn remote ip address is " + conn.RemoteAddr().String())
+	log.Warnf("cong local ip address is " + conn.LocalAddr().String())
+
 	if target.IP.Equal(h.fakedns.IP) && target.Port == h.fakedns.Port {
 		dns := h.dns.Load()
 		go doh.Accept(dns, conn)
