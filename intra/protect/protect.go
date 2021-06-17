@@ -25,6 +25,17 @@ import (
 	"github.com/eycorsican/go-tun2socks/common/log"
 )
 
+// Blocker provides answers to filter network traffic.
+type Blocker interface {
+	// Block is called on a new connection setup; return true to block the connection;
+	// false otherwise.
+	// source and target are string'd representation of net.TCPAddr and net.UDPAddr
+	// depending on the protocol. Note: IPv4 and IPv6 have a very different string
+	// representations: https://stackoverflow.com/a/48519490
+	// uid is -1 in case owner-uid of the connection couldn't be determined
+	Block(protocol int32, uid int, source string, target string) bool
+}
+
 // Protector provides the ability to bypass a VPN on Android, pre-Lollipop.
 type Protector interface {
 	// Protect a socket, i.e. exclude it from the VPN.

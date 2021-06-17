@@ -48,14 +48,17 @@ func init() {
 //
 // Throws an exception if the TUN file descriptor cannot be opened, or if the tunnel fails to
 // connect.
-func ConnectIntraTunnel(fd int, fakedns string, dohdns doh.Transport, protector protect.Protector, listener intra.Listener) (intra.Tunnel, error) {
+func ConnectIntraTunnel(fd int, fakedns string, dohdns doh.Transport, protector protect.Protector, listener intra.Listener, blocker protect.Blocker) (intra.Tunnel, error) {
 	tun, err := tunnel.MakeTunFile(fd)
 	if err != nil {
 		return nil, err
 	}
 	dialer := protect.MakeDialer(protector)
 	config := protect.MakeListenConfig(protector)
-	t, err := intra.NewTunnel(fakedns, dohdns, tun, dialer, config, listener)
+	/*
+		@CyberMine passing blocker interface
+	*/
+	t, err := intra.NewTunnel(fakedns, dohdns, tun, dialer, config, listener, blocker)
 	if err != nil {
 		return nil, err
 	}

@@ -16,6 +16,7 @@ package intra
 
 import (
 	"errors"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
 	"io"
 	"net"
 	"os"
@@ -72,7 +73,7 @@ type intratunnel struct {
 // `tunWriter` is the downstream VPN tunnel.  IntraTunnel.Disconnect() will close `tunWriter`.
 // `dialer` and `config` will be used for all network activity.
 // `listener` will be notified at the completion of every tunneled socket.
-func NewTunnel(fakedns string, dohdns doh.Transport, tunWriter io.WriteCloser, dialer *net.Dialer, config *net.ListenConfig, listener Listener) (Tunnel, error) {
+func NewTunnel(fakedns string, dohdns doh.Transport, tunWriter io.WriteCloser, dialer *net.Dialer, config *net.ListenConfig, listener Listener, blocker protect.Blocker) (Tunnel, error) {
 	if tunWriter == nil {
 		return nil, errors.New("Must provide a valid TUN writer")
 	}
@@ -80,7 +81,7 @@ func NewTunnel(fakedns string, dohdns doh.Transport, tunWriter io.WriteCloser, d
 	t := &intratunnel{
 		Tunnel: tunnel.NewTunnel(tunWriter, core.NewLWIPStack()),
 	}
-	if err := t.registerConnectionHandlers(fakedns, dialer, config, listener); err != nil {
+	if err := t.registerConnectionHandlers(fakedns, dialer, config, listener, blocker); err != nil {
 		return nil, err
 	}
 	t.SetDNS(dohdns)
@@ -88,22 +89,24 @@ func NewTunnel(fakedns string, dohdns doh.Transport, tunWriter io.WriteCloser, d
 }
 
 // Registers Intra's custom UDP and TCP connection handlers to the tun2socks core.
-func (t *intratunnel) registerConnectionHandlers(fakedns string, dialer *net.Dialer, config *net.ListenConfig, listener Listener) error {
+func (t *intratunnel) registerConnectionHandlers(fakedns string, dialer *net.Dialer, config *net.ListenConfig, listener Listener, blocker protect.Blocker) error {
 	// RFC 4787 REQ-5 requires a timeout no shorter than 5 minutes.
+
 	timeout, _ := time.ParseDuration("5m")
 
 	udpfakedns, err := net.ResolveUDPAddr("udp", fakedns)
 	if err != nil {
 		return err
 	}
-	t.udp = NewUDPHandler(*udpfakedns, timeout, config, listener)
+
+	t.udp = NewUDPHandler(*udpfakedns, timeout, config, listener, blocker)
 	core.RegisterUDPConnHandler(t.udp)
 
 	tcpfakedns, err := net.ResolveTCPAddr("tcp", fakedns)
 	if err != nil {
 		return err
 	}
-	t.tcp = NewTCPHandler(*tcpfakedns, dialer, listener)
+	t.tcp = NewTCPHandler(*tcpfakedns, dialer, listener, blocker)
 	core.RegisterTCPConnHandler(t.tcp)
 	return nil
 }

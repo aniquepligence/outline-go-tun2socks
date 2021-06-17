@@ -102,7 +102,7 @@ type transport struct {
 	hangoverExpiration time.Time
 }
 
-// Wait up to three seconds for the TCP handshake to complete.
+// Wait up to three seconds for the `TCP handshake to complete.
 const tcpTimeout time.Duration = 3 * time.Second
 
 func (t *transport) dial(network, addr string) (net.Conn, error) {

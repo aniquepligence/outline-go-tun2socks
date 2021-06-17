@@ -17,6 +17,9 @@
 package intra
 
 import (
+	"fmt"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/processFinder"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
 	"io"
 	"net"
 	"time"
@@ -44,6 +47,7 @@ type tcpHandler struct {
 	dialer           *net.Dialer
 	listener         TCPListener
 	sniReporter      tcpSNIReporter
+	blocker          protect.Blocker
 }
 
 // TCPSocketSummary provides information about each TCP socket, reported when it is closed.
@@ -66,11 +70,12 @@ type TCPListener interface {
 // Connections to `fakedns` are redirected to DOH.
 // All other traffic is forwarded using `dialer`.
 // `listener` is provided with a summary of each socket when it is closed.
-func NewTCPHandler(fakedns net.TCPAddr, dialer *net.Dialer, listener TCPListener) TCPHandler {
+func NewTCPHandler(fakedns net.TCPAddr, dialer *net.Dialer, listener TCPListener, blocker protect.Blocker) TCPHandler {
 	return &tcpHandler{
 		fakedns:  fakedns,
 		dialer:   dialer,
 		listener: listener,
+		blocker:  blocker,
 	}
 }
 
@@ -129,6 +134,11 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	log.Warnf("conn remote ip address is " + conn.RemoteAddr().String())
 	log.Warnf("cong local ip address is " + conn.LocalAddr().String())
 
+	if h.blockConn(conn, target) {
+		// an error here results in a core.tcpConn.Abort
+		return fmt.Errorf("tcp connection firewalled")
+	}
+
 	if target.IP.Equal(h.fakedns.IP) && target.Port == h.fakedns.Port {
 		dns := h.dns.Load()
 		go doh.Accept(dns, conn)
@@ -174,4 +184,27 @@ func (h *tcpHandler) SetAlwaysSplitHTTPS(s bool) {
 
 func (h *tcpHandler) EnableSNIReporter(file io.ReadWriter, suffix, country string) error {
 	return h.sniReporter.Configure(file, suffix, country)
+}
+
+func (h *tcpHandler) blockConn(localConn net.Conn, target *net.TCPAddr) (block bool) {
+	// BlockModeNone returns false, BlockModeSink returns true
+
+	// Implict: BlockModeFilter or BlockModeFilterProc
+	localtcp := localConn.(core.TCPConn)
+	localaddr := localtcp.LocalAddr().(*net.TCPAddr)
+
+	uid := -1
+	procEntry := processFinder.FindProcNetEntry("tcp", localaddr.IP, localaddr.Port, target.IP, target.Port)
+	if procEntry != nil {
+		uid = procEntry.UserID
+	}
+
+	block = h.blocker.Block(6 /*TCP*/, uid, localaddr.String(), target.String())
+
+	if block {
+		log.Warnf("firewalled connection from %s:%s to %s:%s",
+			localaddr.Network(), localaddr.String(), target.Network(), target.String())
+	}
+
+	return
 }

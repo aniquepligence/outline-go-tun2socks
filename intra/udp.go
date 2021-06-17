@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/processFinder"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
 	"net"
 	"sync"
 	"time"
@@ -69,6 +71,10 @@ type udpHandler struct {
 	dns      doh.Transport
 	config   *net.ListenConfig
 	listener UDPListener
+	/*
+		@cybermine
+	*/
+	blocker protect.Blocker
 }
 
 // NewUDPHandler makes a UDP handler with Intra-style DNS redirection:
@@ -77,13 +83,15 @@ type udpHandler struct {
 // `timeout` controls the effective NAT mapping lifetime.
 // `config` is used to bind new external UDP ports.
 // `listener` receives a summary about each UDP binding when it expires.
-func NewUDPHandler(fakedns net.UDPAddr, timeout time.Duration, config *net.ListenConfig, listener UDPListener) UDPHandler {
+func NewUDPHandler(fakedns net.UDPAddr, timeout time.Duration, config *net.ListenConfig, listener UDPListener, blocker protect.Blocker) UDPHandler {
 	return &udpHandler{
 		timeout:  timeout,
 		udpConns: make(map[core.UDPConn]*tracker, 8),
 		fakedns:  fakedns,
 		config:   config,
 		listener: listener,
+
+		blocker: blocker,
 	}
 }
 
@@ -113,6 +121,12 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, t *tracker) {
 }
 
 func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
+
+	if h.blockConn(conn, target) {
+		// an error here results in a core.udpConn.Close
+		return fmt.Errorf("udp connection firwall applied in connection function of udp")
+	}
+
 	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
 	pc, err := h.config.ListenPacket(context.TODO(), bindAddr.Network(), bindAddr.String())
 	if err != nil {
@@ -192,4 +206,27 @@ func (h *udpHandler) SetDNS(dns doh.Transport) {
 	h.Lock()
 	h.dns = dns
 	h.Unlock()
+}
+
+func (h *udpHandler) blockConn(localudp core.UDPConn, target *net.UDPAddr) (block bool) {
+
+	localaddr := localudp.LocalAddr() //.(*net.UDPAddr)
+	return h.blockConnAddr(localaddr, target)
+}
+
+func (h *udpHandler) blockConnAddr(source *net.UDPAddr, target *net.UDPAddr) (block bool) {
+
+	uid := -1
+
+	procEntry := processFinder.FindProcNetEntry("udp", source.IP, source.Port, target.IP, target.Port)
+	if procEntry != nil {
+		uid = procEntry.UserID
+	}
+
+	block = h.blocker.Block(17 /*UDP*/, uid, source.String(), target.String())
+
+	if block {
+		log.Warnf("firewalled udp connection from %s:%s to %s:%s", source.Network(), source.String(), target.Network(), target.String())
+	}
+	return block
 }
