@@ -16,6 +16,7 @@
 
 package intra
 
+import "C"
 import (
 	"context"
 	"errors"
@@ -23,8 +24,10 @@ import (
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/processFinder"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
 	"net"
+	"reflect"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/eycorsican/go-tun2socks/common/log"
 	"github.com/eycorsican/go-tun2socks/core"
@@ -90,8 +93,7 @@ func NewUDPHandler(fakedns net.UDPAddr, timeout time.Duration, config *net.Liste
 		fakedns:  fakedns,
 		config:   config,
 		listener: listener,
-
-		blocker: blocker,
+		blocker:  blocker,
 	}
 }
 
@@ -122,6 +124,8 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, t *tracker) {
 
 func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 
+	log.Warnf("Cyber Mine: UDP Connection Called with target of %s", target.IP)
+
 	if h.blockConn(conn, target) {
 		// an error here results in a core.udpConn.Close
 		return fmt.Errorf("udp connection firwall applied in connection function of udp")
@@ -129,10 +133,12 @@ func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 
 	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
 	pc, err := h.config.ListenPacket(context.TODO(), bindAddr.Network(), bindAddr.String())
+
 	if err != nil {
 		log.Errorf("failed to bind udp address")
 		return err
 	}
+
 	t := makeTracker(pc.(*net.UDPConn))
 	h.Lock()
 	h.udpConns[conn] = t
@@ -143,7 +149,25 @@ func (h *udpHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 }
 
 func (h *udpHandler) doDoh(dns doh.Transport, t *tracker, conn core.UDPConn, data []byte) {
+
+	log.Warnf("CyberMine: Doing DOH now")
 	resp, err := dns.Query(data)
+
+	// @CyberMine work here
+
+	//buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
+	//defer C.pbuf_free(buf)
+
+	log.Warnf("response from dho @CyberMine is %s ", &data)
+	log.Warnf("response from dho @CyberMine is %s ", data)
+
+	// @CyberMine work end
+
+	log.Warnf("response from dohis %s", resp)
+	log.Warnf("response from dohis %s", string(resp))
+	if err != nil {
+		log.Warnf("CyberMine: error recieved after dns call %s", err.Error())
+	}
 	if resp != nil {
 		_, err = conn.WriteFrom(resp, &h.fakedns)
 	}
@@ -160,31 +184,54 @@ func (h *udpHandler) doDoh(dns doh.Transport, t *tracker, conn core.UDPConn, dat
 	}
 }
 
-func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
+func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, target *net.UDPAddr) error {
+	log.Warnf("CyberMine: RecieveTo function started")
+
 	h.RLock()
 	dns := h.dns
+
 	t, ok1 := h.udpConns[conn]
 	h.RUnlock()
 
 	if !ok1 {
-		return fmt.Errorf("connection %v->%v does not exists", conn.LocalAddr(), addr)
+		return fmt.Errorf("connection %v->%v does not exists", conn.LocalAddr(), target)
 	}
 
 	// Update deadline.
 	t.conn.SetDeadline(time.Now().Add(h.timeout))
 
-	if addr.IP.Equal(h.fakedns.IP) && addr.Port == h.fakedns.Port {
+	log.Warnf("CyberMine: Preparing for doh call %s", target.IP)
+	log.Warnf("CyberMine: Preparing for doh call %s", data)
+
+	if target.IP.Equal(h.fakedns.IP) && target.Port == h.fakedns.Port {
+
+		/*
+			@CyberMine: Wrtiing block function for dns blocking as well
+		*/
+		if h.blockDomainConn(conn, target, data) {
+			// an error here results in a core.udpConn.Close
+			return fmt.Errorf("udp connection firwall applied in connection function of udp")
+		}
+
 		dataCopy := append([]byte{}, data...)
 		go h.doDoh(dns, t, conn, dataCopy)
+
 		return nil
 	}
+
 	t.upload += int64(len(data))
-	_, err := t.conn.WriteTo(data, addr)
+	_, err := t.conn.WriteTo(data, target)
 	if err != nil {
 		log.Warnf("failed to forward UDP payload")
 		return errors.New("failed to write UDP data")
 	}
 	return nil
+}
+
+func BytesToString(b []byte) string {
+	bh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	sh := reflect.StringHeader{bh.Data, bh.Len}
+	return *(*string)(unsafe.Pointer(&sh))
 }
 
 func (h *udpHandler) Close(conn core.UDPConn) {
@@ -224,6 +271,29 @@ func (h *udpHandler) blockConnAddr(source *net.UDPAddr, target *net.UDPAddr) (bl
 	}
 
 	block = h.blocker.Block(17 /*UDP*/, uid, source.String(), target.String())
+
+	if block {
+		log.Warnf("firewalled udp connection from %s:%s to %s:%s", source.Network(), source.String(), target.Network(), target.String())
+	}
+	return block
+}
+
+func (h *udpHandler) blockDomainConn(localudp core.UDPConn, target *net.UDPAddr, data []byte) (block bool) {
+
+	localaddr := localudp.LocalAddr() //.(*net.UDPAddr)
+	return h.blockDomainConnAddr(localaddr, target, data)
+}
+
+func (h *udpHandler) blockDomainConnAddr(source *net.UDPAddr, target *net.UDPAddr, data []byte) (block bool) {
+
+	uid := -1
+
+	procEntry := processFinder.FindProcNetEntry("udp", source.IP, source.Port, target.IP, target.Port)
+	if procEntry != nil {
+		uid = procEntry.UserID
+	}
+
+	block = h.blocker.BlockDomain(17 /*UDP*/, uid, source.String(), target.String(), data)
 
 	if block {
 		log.Warnf("firewalled udp connection from %s:%s to %s:%s", source.Network(), source.String(), target.Network(), target.String())

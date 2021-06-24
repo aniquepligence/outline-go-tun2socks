@@ -35,6 +35,7 @@ import (
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/doh/ipmap"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/split"
 	"github.com/eycorsican/go-tun2socks/common/log"
+	//_ "github.com/google/gopacket"
 	"golang.org/x/net/dns/dnsmessage"
 )
 
@@ -66,6 +67,7 @@ type Summary struct {
 	Server     string
 	Status     int
 	HTTPStatus int // Zero unless Status is Complete or HTTPError
+
 }
 
 // A Token is an opaque handle used to match responses to queries.
@@ -400,6 +402,7 @@ func (t *transport) sendRequest(id uint16, req *http.Request) (response []byte, 
 	}
 	log.Debugf("%d Got response", id)
 	response, err = ioutil.ReadAll(httpResponse.Body)
+
 	if err != nil {
 		qerr = &queryError{BadResponse, err}
 		return
@@ -408,6 +411,7 @@ func (t *transport) sendRequest(id uint16, req *http.Request) (response []byte, 
 	log.Debugf("%d Closed response", id)
 
 	// Update the hostname, which could have changed due to a redirect.
+
 	hostname = httpResponse.Request.URL.Hostname()
 
 	if httpResponse.StatusCode != http.StatusOK {
@@ -454,6 +458,8 @@ func (t *transport) Query(q []byte) ([]byte, error) {
 		if server != nil {
 			ip = server.IP.String()
 		}
+
+		log.Warnf("@CyberMine: transport data is %s and %s", t.ips.Get("pligence.com").GetAll())
 
 		t.listener.OnResponse(token, &Summary{
 			Latency:    latency.Seconds(),
