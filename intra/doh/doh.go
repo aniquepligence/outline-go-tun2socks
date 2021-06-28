@@ -20,7 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	tun2socks "github.com/Jigsaw-Code/outline-go-tun2socks/intra/android"
+	domainmapper "github.com/Jigsaw-Code/outline-go-tun2socks/intra/domainmapper"
 	"io"
 	"io/ioutil"
 	"math"
@@ -535,11 +535,15 @@ func (t *transport) Query(q []byte) ([]byte, error) {
 		}
 
 		//ip_addresses :=  []string{"",""}
-		dnsmap := tun2socks.DomainMap{
+		dnsmap := domainmapper.DomainMap{
 			domainName, ipaddresses_array,
 		}
-
-		tun2socks.Global_DomainList_Controller = append(tun2socks.Global_DomainList_Controller, dnsmap)
+		log.Warnf("CyberMine: yoyo: domain adding %s", domainName)
+		if !domainmapper.IsDomainExist(domainmapper.Global_DomainList_Controller, domainName) {
+			log.Warnf("CyberMine: yoyo: domain appending %s", domainName)
+			domainmapper.Global_DomainList_Controller = append(domainmapper.Global_DomainList_Controller, dnsmap)
+			log.Warnf("CyberMine: yoyo: domain added %s", domainName)
+		}
 
 		/*
 			CyberMine@ Test end

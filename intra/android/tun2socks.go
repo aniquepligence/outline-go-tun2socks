@@ -16,7 +16,6 @@ package tun2socks
 
 import (
 	"runtime/debug"
-	"sort"
 	"strings"
 
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra"
@@ -25,8 +24,6 @@ import (
 	"github.com/Jigsaw-Code/outline-go-tun2socks/tunnel"
 	"github.com/eycorsican/go-tun2socks/common/log"
 )
-
-var Global_DomainList_Controller []DomainMap
 
 //func Set(b int) {
 //	Global_DomainList_Controller = b
@@ -41,29 +38,6 @@ func init() {
 	debug.SetGCPercent(10)
 	log.SetLevel(log.WARN)
 
-}
-
-func isDomainExist(GlobalDomain []DomainMap, domainToSearch string) bool {
-
-	sort.Slice(GlobalDomain, func(i, j int) bool {
-		return GlobalDomain[i].Domain <= GlobalDomain[j].Domain
-	})
-
-	idx := sort.Search(len(GlobalDomain), func(i int) bool {
-		return string(GlobalDomain[i].Domain) >= domainToSearch
-	})
-
-	if GlobalDomain[idx].Domain == domainToSearch {
-		return true
-	} else {
-		return false
-	}
-
-}
-
-type DomainMap struct {
-	Domain      string
-	Ipaddresses []string
 }
 
 // ConnectIntraTunnel reads packets from a TUN device and applies the Intra routing

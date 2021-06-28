@@ -33,11 +33,18 @@ type Blocker interface {
 	// depending on the protocol. Note: IPv4 and IPv6 have a very different string
 	// representations: https://stackoverflow.com/a/48519490
 	// uid is -1 in case owner-uid of the connection couldn't be determined
+
 	Block(protocol int32, uid int, source string, target string) bool
 	/*
 		@CyberMine entring new function
 	*/
 	BlockDomain(protocol int32, uid int, source string, target string, data []byte) bool
+
+	MappedBlock(protocol int32, uid int, source string, target string, domain string) bool
+
+	/*
+		@CyberMine End of customisation
+	*/
 }
 
 // Protector provides the ability to bypass a VPN on Android, pre-Lollipop.

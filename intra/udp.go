@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/processFinder"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
-	"golang.org/x/net/dns/dnsmessage"
 	"net"
 	"reflect"
 	"sync"
@@ -195,79 +194,6 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, target *net.UDPAd
 	//log.Warnf("CyberMine: Preparing for doh call %s", data)
 
 	if target.IP.Equal(h.fakedns.IP) && target.Port == h.fakedns.Port {
-
-		/*
-			@CyberMine: Wrtiing block function for dns blocking as well
-		*/
-		var domainName = ""
-		var p dnsmessage.Parser
-		if _, err := p.Start(data); err != nil {
-			panic(err)
-		}
-
-		for {
-			q, err := p.Question()
-			if err == dnsmessage.ErrSectionDone {
-				break
-			}
-			if err != nil {
-				panic(err)
-			}
-
-			domainName = q.Name.String()
-			log.Warnf("CyberMine: TIPO Name %s", domainName)
-			/*if q.Name.String() != wantName {
-				continue
-			}*/
-
-			if err := p.SkipAllQuestions(); err != nil {
-				panic(err)
-			}
-			break
-		}
-
-		var gotIPs []net.IP
-		for {
-			h, err := p.AnswerHeader()
-			if err == dnsmessage.ErrSectionDone {
-				break
-			}
-			if err != nil {
-				panic(err)
-			}
-
-			if (h.Type != dnsmessage.TypeA && h.Type != dnsmessage.TypeAAAA) || h.Class != dnsmessage.ClassINET {
-				continue
-			}
-
-			/*	if !strings.EqualFold(h.Name.String(), wantName) {
-				if err := p.SkipAnswer(); err != nil {
-					panic(err)
-				}
-				continue
-			}*/
-
-			switch h.Type {
-			case dnsmessage.TypeA:
-				r, err := p.AResource()
-				if err != nil {
-					panic(err)
-				}
-				gotIPs = append(gotIPs, r.A[:])
-			case dnsmessage.TypeAAAA:
-				r, err := p.AAAAResource()
-				if err != nil {
-					panic(err)
-				}
-				gotIPs = append(gotIPs, r.AAAA[:])
-			}
-		}
-
-		log.Warnf("CyberMine: TIPO Found A/AAAA records for name %s: %v\n", domainName, gotIPs)
-
-		/*
-			CyberMine@ Test end
-		*/
 
 		if h.blockDomainConn(conn, target, data) {
 			// an error here results in a core.udpConn.Close
