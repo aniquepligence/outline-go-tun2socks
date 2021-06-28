@@ -20,6 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	tun2socks "github.com/Jigsaw-Code/outline-go-tun2socks/intra/android"
 	"io"
 	"io/ioutil"
 	"math"
@@ -322,7 +323,7 @@ func (t *transport) sendRequest(id uint16, req *http.Request) (response []byte, 
 		if qerr == nil {
 			return
 		}
-		log.Infof("%d Query failed: %v", id, qerr)
+		//log.Infof("%d Query failed: %v", id, qerr)
 		if server != nil {
 			log.Debugf("%d Disconfirming %s", id, server.IP.String())
 			t.ips.Get(hostname).Disconfirm(server.IP)
@@ -419,7 +420,7 @@ func (t *transport) sendRequest(id uint16, req *http.Request) (response []byte, 
 		req.Write(reqBuf)
 		respBuf := new(bytes.Buffer)
 		httpResponse.Write(respBuf)
-		log.Debugf("%d request: %s\nresponse: %s", id, reqBuf.String(), respBuf.String())
+		//log.Debugf("%d request: %s\nresponse: %s", id, reqBuf.String(), respBuf.String())
 
 		qerr = &queryError{HTTPError, &httpError{httpResponse.StatusCode}}
 		return
@@ -459,7 +460,90 @@ func (t *transport) Query(q []byte) ([]byte, error) {
 			ip = server.IP.String()
 		}
 
-		log.Warnf("@CyberMine: transport data is %s and %s", t.ips.Get("pligence.com").GetAll())
+		/*
+			@CyberMine: Wrtiing block function for dns blocking as well
+		*/
+		var domainName = ""
+		var p dnsmessage.Parser
+		if _, err := p.Start(response); err != nil {
+			panic(err)
+		}
+
+		for {
+			q, err := p.Question()
+			if err == dnsmessage.ErrSectionDone {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+
+			domainName = q.Name.String()
+			log.Warnf("CyberMine: PIPO Name %s", domainName)
+			/*if q.Name.String() != wantName {
+				continue
+			}*/
+
+			if err := p.SkipAllQuestions(); err != nil {
+				panic(err)
+			}
+			break
+		}
+
+		var gotIPs []net.IP
+		for {
+			h, err := p.AnswerHeader()
+			if err == dnsmessage.ErrSectionDone {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+
+			if (h.Type != dnsmessage.TypeA && h.Type != dnsmessage.TypeAAAA) || h.Class != dnsmessage.ClassINET {
+				continue
+			}
+
+			/*	if !strings.EqualFold(h.Name.String(), wantName) {
+				if err := p.SkipAnswer(); err != nil {
+					panic(err)
+				}
+				continue
+			}*/
+
+			switch h.Type {
+			case dnsmessage.TypeA:
+				r, err := p.AResource()
+				if err != nil {
+					panic(err)
+				}
+				gotIPs = append(gotIPs, r.A[:])
+			case dnsmessage.TypeAAAA:
+				r, err := p.AAAAResource()
+				if err != nil {
+					panic(err)
+				}
+				gotIPs = append(gotIPs, r.AAAA[:])
+			}
+		}
+		//getCountryCode("166.62.6.69")
+		log.Warnf("CyberMine: PIPO Found A/AAAA records for name %s: %v\n", domainName, gotIPs)
+
+		ipaddresses_array := []string{}
+		for _, s := range gotIPs {
+			ipaddresses_array = append(ipaddresses_array, s.String())
+		}
+
+		//ip_addresses :=  []string{"",""}
+		dnsmap := tun2socks.DomainMap{
+			domainName, ipaddresses_array,
+		}
+
+		tun2socks.Global_DomainList_Controller = append(tun2socks.Global_DomainList_Controller, dnsmap)
+
+		/*
+			CyberMine@ Test end
+		*/
 
 		t.listener.OnResponse(token, &Summary{
 			Latency:    latency.Seconds(),

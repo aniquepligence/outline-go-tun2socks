@@ -129,10 +129,10 @@ func filteredPort(addr net.Addr) int16 {
 // TODO: Request upstream to make `conn` a `core.TCPConn` so we can avoid a type assertion.
 func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	// DNS override
-	log.Warnf("target ip address is " + target.IP.String())
-	log.Warnf("h ip address is " + h.fakedns.IP.String())
-	log.Warnf("conn remote ip address is " + conn.RemoteAddr().String())
-	log.Warnf("cong local ip address is " + conn.LocalAddr().String())
+	//log.Warnf("target ip address is " + target.IP.String())
+	//log.Warnf("h ip address is " + h.fakedns.IP.String())
+	//log.Warnf("conn remote ip address is " + conn.RemoteAddr().String())
+	//log.Warnf("cong local ip address is " + conn.LocalAddr().String())
 
 	if h.blockConn(conn, target) {
 		// an error here results in a core.tcpConn.Abort
@@ -202,10 +202,10 @@ func (h *tcpHandler) blockConn(localConn net.Conn, target *net.TCPAddr) (block b
 
 	block = h.blocker.Block(6 /*TCP*/, uid, localaddr.String(), target.String())
 
-	if block {
-		log.Warnf("firewalled connection from %s:%s to %s:%s",
-			localaddr.Network(), localaddr.String(), target.Network(), target.String())
-	}
+	//if block {
+	//	log.Warnf("firewalled connection from %s:%s to %s:%s",
+	//		localaddr.Network(), localaddr.String(), target.Network(), target.String())
+	//}
 
 	return
 }

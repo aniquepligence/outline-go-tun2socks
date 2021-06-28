@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/processFinder"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
+	"golang.org/x/net/dns/dnsmessage"
 	"net"
 	"reflect"
 	"sync"
@@ -33,6 +34,7 @@ import (
 	"github.com/eycorsican/go-tun2socks/core"
 
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/doh"
+	//"github.com/miekg/dns"
 )
 
 // UDPSocketSummary describes a non-DNS UDP association, reported when it is discarded.
@@ -52,6 +54,7 @@ type tracker struct {
 	start    time.Time
 	upload   int64 // Non-DNS upload bytes
 	download int64 // Non-DNS download bytes
+
 }
 
 func makeTracker(conn *net.UDPConn) *tracker {
@@ -153,18 +156,6 @@ func (h *udpHandler) doDoh(dns doh.Transport, t *tracker, conn core.UDPConn, dat
 	log.Warnf("CyberMine: Doing DOH now")
 	resp, err := dns.Query(data)
 
-	// @CyberMine work here
-
-	//buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
-	//defer C.pbuf_free(buf)
-
-	log.Warnf("response from dho @CyberMine is %s ", &data)
-	log.Warnf("response from dho @CyberMine is %s ", data)
-
-	// @CyberMine work end
-
-	log.Warnf("response from dohis %s", resp)
-	log.Warnf("response from dohis %s", string(resp))
 	if err != nil {
 		log.Warnf("CyberMine: error recieved after dns call %s", err.Error())
 	}
@@ -200,14 +191,84 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, target *net.UDPAd
 	// Update deadline.
 	t.conn.SetDeadline(time.Now().Add(h.timeout))
 
-	log.Warnf("CyberMine: Preparing for doh call %s", target.IP)
-	log.Warnf("CyberMine: Preparing for doh call %s", data)
+	//log.Warnf("CyberMine: Preparing for doh call %s", target.IP)
+	//log.Warnf("CyberMine: Preparing for doh call %s", data)
 
 	if target.IP.Equal(h.fakedns.IP) && target.Port == h.fakedns.Port {
 
 		/*
 			@CyberMine: Wrtiing block function for dns blocking as well
 		*/
+		var domainName = ""
+		var p dnsmessage.Parser
+		if _, err := p.Start(data); err != nil {
+			panic(err)
+		}
+
+		for {
+			q, err := p.Question()
+			if err == dnsmessage.ErrSectionDone {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+
+			domainName = q.Name.String()
+			log.Warnf("CyberMine: TIPO Name %s", domainName)
+			/*if q.Name.String() != wantName {
+				continue
+			}*/
+
+			if err := p.SkipAllQuestions(); err != nil {
+				panic(err)
+			}
+			break
+		}
+
+		var gotIPs []net.IP
+		for {
+			h, err := p.AnswerHeader()
+			if err == dnsmessage.ErrSectionDone {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+
+			if (h.Type != dnsmessage.TypeA && h.Type != dnsmessage.TypeAAAA) || h.Class != dnsmessage.ClassINET {
+				continue
+			}
+
+			/*	if !strings.EqualFold(h.Name.String(), wantName) {
+				if err := p.SkipAnswer(); err != nil {
+					panic(err)
+				}
+				continue
+			}*/
+
+			switch h.Type {
+			case dnsmessage.TypeA:
+				r, err := p.AResource()
+				if err != nil {
+					panic(err)
+				}
+				gotIPs = append(gotIPs, r.A[:])
+			case dnsmessage.TypeAAAA:
+				r, err := p.AAAAResource()
+				if err != nil {
+					panic(err)
+				}
+				gotIPs = append(gotIPs, r.AAAA[:])
+			}
+		}
+
+		log.Warnf("CyberMine: TIPO Found A/AAAA records for name %s: %v\n", domainName, gotIPs)
+
+		/*
+			CyberMine@ Test end
+		*/
+
 		if h.blockDomainConn(conn, target, data) {
 			// an error here results in a core.udpConn.Close
 			return fmt.Errorf("udp connection firwall applied in connection function of udp")
@@ -271,10 +332,10 @@ func (h *udpHandler) blockConnAddr(source *net.UDPAddr, target *net.UDPAddr) (bl
 	}
 
 	block = h.blocker.Block(17 /*UDP*/, uid, source.String(), target.String())
-
-	if block {
-		log.Warnf("firewalled udp connection from %s:%s to %s:%s", source.Network(), source.String(), target.Network(), target.String())
-	}
+	//
+	//if block {
+	//	log.Warnf("firewalled udp connection from %s:%s to %s:%s", source.Network(), source.String(), target.Network(), target.String())
+	//}
 	return block
 }
 
@@ -295,8 +356,8 @@ func (h *udpHandler) blockDomainConnAddr(source *net.UDPAddr, target *net.UDPAdd
 
 	block = h.blocker.BlockDomain(17 /*UDP*/, uid, source.String(), target.String(), data)
 
-	if block {
-		log.Warnf("firewalled udp connection from %s:%s to %s:%s", source.Network(), source.String(), target.Network(), target.String())
-	}
+	//if block {
+	//	log.Warnf("firewalled udp connection from %s:%s to %s:%s", source.Network(), source.String(), target.Network(), target.String())
+	//}
 	return block
 }
