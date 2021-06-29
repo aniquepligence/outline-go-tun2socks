@@ -18,7 +18,7 @@ package intra
 
 import (
 	"fmt"
-	domainmapper "github.com/Jigsaw-Code/outline-go-tun2socks/intra/domainmapper"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/domainmapper"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/processFinder"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
 	"io"
@@ -202,15 +202,8 @@ func (h *tcpHandler) blockConn(localConn net.Conn, target *net.TCPAddr) (block b
 	}
 
 	domain := domainmapper.FetchDomainFromController(domainmapper.Global_DomainList_Controller, target.IP.String())
-	//block = h.blocker.Block(6 /*TCP*/, uid, localaddr.String(), target.String())
+	//domain := ""
 	block = h.blocker.MappedBlock(6 /*TCP*/, uid, localaddr.String(), target.String(), domain)
-
-	log.Warnf("CyberMine@: uid is %s , ipaddress is %s , domain is %s , port is %s ", uid, target.IP, domain, target.Port)
-
-	//if block {
-	//	log.Warnf("firewalled connection from %s:%s to %s:%s",
-	//		localaddr.Network(), localaddr.String(), target.Network(), target.String())
-	//}
 
 	return
 }

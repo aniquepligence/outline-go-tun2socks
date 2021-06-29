@@ -99,7 +99,7 @@ func (t *intratunnel) registerConnectionHandlers(fakedns string, dialer *net.Dia
 		return err
 	}
 
-	t.udp = NewUDPHandler(*udpfakedns, timeout, config, listener, blocker)
+	t.udp = NewUDPHandler(*udpfakedns, timeout, config, listener)
 	core.RegisterUDPConnHandler(t.udp)
 
 	tcpfakedns, err := net.ResolveTCPAddr("tcp", fakedns)

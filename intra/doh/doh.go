@@ -20,7 +20,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	domainmapper "github.com/Jigsaw-Code/outline-go-tun2socks/intra/domainmapper"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/domainmapper"
 	"io"
 	"io/ioutil"
 	"math"
@@ -463,7 +463,9 @@ func (t *transport) Query(q []byte) ([]byte, error) {
 		/*
 			@CyberMine: Wrtiing block function for dns blocking as well
 		*/
+
 		var domainName = ""
+
 		var p dnsmessage.Parser
 		if _, err := p.Start(response); err != nil {
 			panic(err)
@@ -479,10 +481,8 @@ func (t *transport) Query(q []byte) ([]byte, error) {
 			}
 
 			domainName = q.Name.String()
-			log.Warnf("CyberMine: PIPO Name %s", domainName)
-			/*if q.Name.String() != wantName {
-				continue
-			}*/
+
+			//log.Warnf("CyberMine: PIPO Name %s", domainName)
 
 			if err := p.SkipAllQuestions(); err != nil {
 				panic(err)
@@ -491,25 +491,21 @@ func (t *transport) Query(q []byte) ([]byte, error) {
 		}
 
 		var gotIPs []net.IP
+		//h, err := p.AnswerHeader()
+
 		for {
 			h, err := p.AnswerHeader()
+
 			if err == dnsmessage.ErrSectionDone {
 				break
+
 			}
 			if err != nil {
 				panic(err)
+				log.Warnf("pannic 1")
 			}
 
-			if (h.Type != dnsmessage.TypeA && h.Type != dnsmessage.TypeAAAA) || h.Class != dnsmessage.ClassINET {
-				continue
-			}
-
-			/*	if !strings.EqualFold(h.Name.String(), wantName) {
-				if err := p.SkipAnswer(); err != nil {
-					panic(err)
-				}
-				continue
-			}*/
+			log.Warnf("@CyberMine: Dns %s %s", domainName, h.Type)
 
 			switch h.Type {
 			case dnsmessage.TypeA:
@@ -524,27 +520,33 @@ func (t *transport) Query(q []byte) ([]byte, error) {
 					panic(err)
 				}
 				gotIPs = append(gotIPs, r.AAAA[:])
+			case dnsmessage.TypeCNAME:
+				_, err := p.CNAMEResource()
+				if err != nil {
+					panic(err)
+				}
+				//log.Warnf("CyberMine:hoho %s",r.CNAME.String())
+
+			}
+
+		}
+
+		//log.Warnf("CyberMine: PIPO Found A/AAAA records for name %s: %v\n", domainName, gotIPs)
+
+		if len(gotIPs) > 0 {
+
+			ipaddressesArray := []string{}
+			for _, s := range gotIPs {
+				ipaddressesArray = append(ipaddressesArray, s.String())
+			}
+
+			dnsmap := domainmapper.DomainMap{
+				domainName, ipaddressesArray,
+			}
+			if !domainmapper.IsDomainExist(domainmapper.Global_DomainList_Controller, domainName) {
+				domainmapper.Global_DomainList_Controller = append(domainmapper.Global_DomainList_Controller, dnsmap)
 			}
 		}
-		//getCountryCode("166.62.6.69")
-		log.Warnf("CyberMine: PIPO Found A/AAAA records for name %s: %v\n", domainName, gotIPs)
-
-		ipaddresses_array := []string{}
-		for _, s := range gotIPs {
-			ipaddresses_array = append(ipaddresses_array, s.String())
-		}
-
-		//ip_addresses :=  []string{"",""}
-		dnsmap := domainmapper.DomainMap{
-			domainName, ipaddresses_array,
-		}
-		log.Warnf("CyberMine: yoyo: domain adding %s", domainName)
-		if !domainmapper.IsDomainExist(domainmapper.Global_DomainList_Controller, domainName) {
-			log.Warnf("CyberMine: yoyo: domain appending %s", domainName)
-			domainmapper.Global_DomainList_Controller = append(domainmapper.Global_DomainList_Controller, dnsmap)
-			log.Warnf("CyberMine: yoyo: domain added %s", domainName)
-		}
-
 		/*
 			CyberMine@ Test end
 		*/

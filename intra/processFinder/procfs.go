@@ -313,7 +313,7 @@ func findProcNetEntryForProtocol(protocol string, srcIP net.IP, srcPort int, dst
 
 	entries, err := ParseProcNet(protocol)
 	if err != nil {
-		log.Warnf("Error while searching for %s netstat entry: %s", protocol, err)
+		//log.Warnf("Error while searching for %s netstat entry: %s", protocol, err)
 		return nil
 	}
 

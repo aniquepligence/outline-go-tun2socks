@@ -34,11 +34,9 @@ type Blocker interface {
 	// representations: https://stackoverflow.com/a/48519490
 	// uid is -1 in case owner-uid of the connection couldn't be determined
 
-	Block(protocol int32, uid int, source string, target string) bool
 	/*
-		@CyberMine entring new function
+		MappedBlock function allows to block on tcp layer with mapped domains as well. domainMapping function controller help in mapping
 	*/
-	BlockDomain(protocol int32, uid int, source string, target string, data []byte) bool
 
 	MappedBlock(protocol int32, uid int, source string, target string, domain string) bool
 
